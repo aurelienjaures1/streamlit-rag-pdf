@@ -34,9 +34,17 @@ st.markdown("""
 
 st.title("Posez vos questions")
 st.write("Utilise la puissance de l'IA pour explorer vos documents !")
-uploaded_file = st.file_uploader("📤 Uploader un fichier PDF", type=["pdf"])
-if uploaded_file:
-    vectoriser_pdf_upload(uploaded_file)
+# ========== PROTECTION UPLOAD PDF ==========
+with st.expander("🔒 Espace administrateur (upload PDF)"):
+    password = st.text_input("Mot de passe admin", type="password")
+    
+    if password == st.secrets.get("UPLOAD_PASSWORD", "admin123"):
+        uploaded_file = st.file_uploader("📤 Uploader un fichier PDF", type=["pdf"])
+        if uploaded_file:
+            vectoriser_pdf_upload(uploaded_file)
+    elif password:
+        st.error("❌ Mot de passe incorrect.")
+
 
 
 # ========== SESSION STATE ==========
