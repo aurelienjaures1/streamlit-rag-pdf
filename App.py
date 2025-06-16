@@ -78,6 +78,47 @@ def initialize_rag_components():
 if not st.session_state.is_initialized:
     with st.spinner("Initialisation..."):
         initialize_rag_components()
+        import fitz  # PyMuPDF
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+
+def vectoriser_pdf_upload(file):
+    try:
+        with st.spinner("📄 Lecture du fichier..."):
+            doc = fitz.open(stream=file.read(), filetype="pdf")
+            splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+            all_chunks = []
+
+            for i, page in enumerate(doc):
+                text = page.get_text().strip()
+                if not text:
+                    continue
+                chunks = splitter.split_text(text)
+                for chunk in chunks:
+                    all_chunks.append({
+                        "content": chunk,
+                        "metadata": {
+                            "source": file.name,
+                            "page": i + 1
+                        }
+                    })
+
+        texts = [c["content"] for c in all_chunks]
+        metadatas = [c["metadata"] for c in all_chunks]
+
+        SupabaseVectorStore.from_texts(
+            texts=texts,
+            embedding=OpenAIEmbeddings(openai_api_key=openai_key),
+            metadatas=metadatas,
+            client=create_client(supabase_url, supabase_key),
+            table_name="documents"
+        )
+
+        st.success(f"✅ {len(texts)} morceaux du PDF '{file.name}' ont été vectorisés avec succès !")
+        st.rerun()
+
+    except Exception as e:
+        st.error(f"❌ Erreur lors de l’upload : {e}")
+
 
 # ========== AFFICHAGE HISTORIQUE ==========
 def display_chat_history():
