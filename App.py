@@ -8,7 +8,7 @@ import time
 
 # ========== CONFIGURATION ==========
 st.set_page_config(
-    page_title="CHAT BOT RAG",
+    page_title="RAG",
     page_icon="🤖",
     layout="centered"
 )
@@ -32,8 +32,12 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🤖 CHAT BOT - Posez vos questions")
+st.title("Posez vos questions")
 st.write("Utilise la puissance de l'IA pour explorer vos documents !")
+uploaded_file = st.file_uploader("📤 Uploader un fichier PDF", type=["pdf"])
+if uploaded_file:
+    vectoriser_pdf_upload(uploaded_file)
+
 
 # ========== SESSION STATE ==========
 if "chat_history" not in st.session_state:
