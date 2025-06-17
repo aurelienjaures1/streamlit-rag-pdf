@@ -4,7 +4,8 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_community.vectorstores import SupabaseVectorStore
 from langchain.chains import RetrievalQA
 from supabase import create_client
-import time
+import fitz  # PyMuPDF
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 
 # ========== CONFIGURATION ==========
 st.set_page_config(
@@ -34,65 +35,13 @@ st.markdown("""
 
 st.title("Posez vos questions")
 st.write("Utilise la puissance de l'IA pour explorer vos documents !")
-# ========== PROTECTION UPLOAD PDF ==========
-with st.expander("🔒 Espace administrateur (upload PDF)"):
-    password = st.text_input("Mot de passe admin", type="password")
-    
-    if password == st.secrets.get("UPLOAD_PASSWORD", "admin123"):
-        uploaded_file = st.file_uploader("📤 Uploader un fichier PDF", type=["pdf"])
-        if uploaded_file:
-            vectoriser_pdf_upload(uploaded_file)
-    elif password:
-        st.error("❌ Mot de passe incorrect.")
-
-
-
-# ========== SESSION STATE ==========
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
-
-if "is_initialized" not in st.session_state:
-    st.session_state.is_initialized = False
 
 # ========== LECTURE DES SECRETS ==========
 openai_key = st.secrets["OPENAI_API_KEY"]
 supabase_url = st.secrets["SUPABASE_URL"]
 supabase_key = st.secrets["SUPABASE_SERVICE_KEY"]
 
-# ========== INITIALISATION DES COMPOSANTS ==========
-def initialize_rag_components():
-    try:
-        client = create_client(supabase_url, supabase_key)
-        embedding = OpenAIEmbeddings(openai_api_key=openai_key)
-        vectorstore = SupabaseVectorStore(
-            client=client,
-            embedding=embedding,
-            table_name="documents",
-        )
-        retriever = vectorstore.as_retriever()
-        llm = ChatOpenAI(
-            openai_api_key=openai_key,
-            model_name="gpt-3.5-turbo",
-            temperature=0,
-            max_tokens=1500
-        )
-        qa_chain = RetrievalQA.from_chain_type(
-            llm=llm,
-            retriever=retriever,
-            return_source_documents=True
-        )
-        st.session_state.qa_chain = qa_chain
-        st.session_state.is_initialized = True
-    except Exception as e:
-        st.error(f"❌ Erreur d'initialisation : {e}")
-        st.stop()
-
-if not st.session_state.is_initialized:
-    with st.spinner("Initialisation..."):
-        initialize_rag_components()
-        import fitz  # PyMuPDF
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-
+# ========== FONCTION DE VECTORISATION ==========
 def vectoriser_pdf_upload(file):
     try:
         with st.spinner("📄 Lecture du fichier..."):
@@ -131,6 +80,54 @@ def vectoriser_pdf_upload(file):
     except Exception as e:
         st.error(f"❌ Erreur lors de l’upload : {e}")
 
+# ========== PROTECTION UPLOAD PDF ==========
+with st.expander("🔒 Espace administrateur (upload PDF)"):
+    password = st.text_input("Mot de passe admin", type="password")
+    if password == st.secrets.get("UPLOAD_PASSWORD", "admin123"):
+        uploaded_file = st.file_uploader("📤 Uploader un fichier PDF", type=["pdf"])
+        if uploaded_file:
+            vectoriser_pdf_upload(uploaded_file)
+    elif password:
+        st.error("❌ Mot de passe incorrect.")
+
+# ========== SESSION STATE ==========
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+if "is_initialized" not in st.session_state:
+    st.session_state.is_initialized = False
+
+# ========== INITIALISATION DES COMPOSANTS ==========
+def initialize_rag_components():
+    try:
+        client = create_client(supabase_url, supabase_key)
+        embedding = OpenAIEmbeddings(openai_api_key=openai_key)
+        vectorstore = SupabaseVectorStore(
+            client=client,
+            embedding=embedding,
+            table_name="documents",
+        )
+        retriever = vectorstore.as_retriever()
+        llm = ChatOpenAI(
+            openai_api_key=openai_key,
+            model_name="gpt-3.5-turbo",
+            temperature=0,
+            max_tokens=1500
+        )
+        qa_chain = RetrievalQA.from_chain_type(
+            llm=llm,
+            retriever=retriever,
+            return_source_documents=True
+        )
+        st.session_state.qa_chain = qa_chain
+        st.session_state.is_initialized = True
+    except Exception as e:
+        st.error(f"❌ Erreur d'initialisation : {e}")
+        st.stop()
+
+if not st.session_state.is_initialized:
+    with st.spinner("Initialisation..."):
+        initialize_rag_components()
 
 # ========== AFFICHAGE HISTORIQUE ==========
 def display_chat_history():
@@ -175,13 +172,11 @@ question = st.text_input(
     placeholder="Exemple : Quels sont les symptômes du SAOS ?"
 )
 
-col1, col2, col3 = st.columns([3, 1, 2])
+col1, col2 = st.columns([4, 1])
 with col1:
     send_pressed = st.button("🔍 Envoyer")
 with col2:
     clear_pressed = st.button("🧹 Effacer")
-   
-
 
 if send_pressed and question:
     success = process_question(question)
@@ -192,8 +187,7 @@ if clear_pressed:
     st.session_state.chat_history = []
     st.rerun()
 
-
-
 # ========== PIED DE PAGE ==========
 st.markdown("---")
 st.markdown("📝 Ce chatbot utilise l'IA pour répondre à vos questions basées sur vos documents PDF via un système RAG.")
+
