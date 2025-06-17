@@ -180,8 +180,8 @@ with col1:
     send_pressed = st.button("🔍 Envoyer")
 with col2:
     clear_pressed = st.button("🧹 Effacer")
-with col3:
-    test_pressed = st.button("💡 Tester l'historique manuel")
+
+
 
 if send_pressed and question:
     success = process_question(question)
